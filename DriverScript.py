@@ -12,13 +12,15 @@ import time
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+
 class PolicyNetwork(nn.Module):
     def __init__(self, input_size, hidden_size):
         super(PolicyNetwork, self).__init__()
         self.fc1 = nn.Linear(input_size, hidden_size)
         self.relu = nn.ReLU()
         self.fc_mean = nn.Linear(hidden_size, 1)  # Mean for a single product
-        self.fc_log_std = nn.Linear(hidden_size, 1)  # Log-std for a single product
+        # Log-std for a single product
+        self.fc_log_std = nn.Linear(hidden_size, 1)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -96,7 +98,8 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
     for episode in range(num_episodes):
 
         for dataset_index, dataset in tqdm(enumerate(train_datasets)):
-            print(f"Training on Dataset {dataset_index + 1}/{len(train_datasets)}")
+            print(f"Training on Dataset {
+                  dataset_index + 1}/{len(train_datasets)}")
             dataset_train_rewards = []
 
             for step in range(max_steps):
@@ -119,8 +122,10 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
                     product_state = [
                         model.states[product]["Demand"],
                         model.states[product]["Forecast"],
-                        sum(batch["Quantity"] for batch in model.pharm_invs[product]),
-                        sum(batch["Quantity"] for batch in model.pharm_invs[product] if batch["ShelfLife"] <= 2)
+                        sum(batch["Quantity"]
+                            for batch in model.pharm_invs[product]),
+                        sum(batch["Quantity"]
+                            for batch in model.pharm_invs[product] if batch["ShelfLife"] <= 2)
                     ]
                     state_vector.append(product_state)
 
@@ -136,14 +141,16 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
                     raw_action = action_distribution.sample()
                     clipped_action = torch.clamp(raw_action, 0, 100)
                     decision = torch.round(clipped_action).int().item()
-                    log_prob = action_distribution.log_prob(clipped_action).sum()
+                    log_prob = action_distribution.log_prob(
+                        clipped_action).sum()
                     product_log_probs.append(log_prob)
                     decisions.append(decision)
 
                 log_probs = torch.stack(product_log_probs).sum()
 
                 # Update model with chosen actions
-                order_decision = {product: qty for product, qty in zip(product_names, decisions)}
+                order_decision = {product: qty for product,
+                                  qty in zip(product_names, decisions)}
                 model.build_decision(order_quantities=order_decision)
 
                 # Use LP solver to compute rewards and get optimal order quantities
@@ -153,7 +160,7 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
 
                 # use optimal_order_quantities to adjust policy decisions
                 blended_decisions = {product: int(0.5 * policy_decision + 0.5 * optimal_order)
-                                    for product, policy_decision, optimal_order in zip(product_names, decisions, optimal_order_quantities.values())}
+                                     for product, policy_decision, optimal_order in zip(product_names, decisions, optimal_order_quantities.values())}
                 model.build_decision(order_quantities=blended_decisions)
 
                 # Transition the model's state
@@ -169,7 +176,7 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
                 states = torch.stack(states)
                 actions = torch.stack(actions).squeeze()
                 rewards = torch.tensor(rewards, dtype=torch.float32)
-                
+
                 loss = -torch.sum(log_probs * rewards)
 
                 optimizer.zero_grad()
@@ -183,7 +190,8 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
 
             dataset_train_rewards.append(sum(step_rewards) / len(step_rewards))
 
-        train_rewards_history.append(sum(dataset_train_rewards) / len(dataset_train_rewards))
+        train_rewards_history.append(
+            sum(dataset_train_rewards) / len(dataset_train_rewards))
 
         # Evaluation phase (optional)
         episode_eval_rewards = []
@@ -201,8 +209,10 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
                     product_state = [
                         model.states[product]["Demand"],
                         model.states[product]["Forecast"],
-                        sum(batch["Quantity"] for batch in model.pharm_invs[product]),
-                        sum(batch["Quantity"] for batch in model.pharm_invs[product] if batch["ShelfLife"] <= 2)
+                        sum(batch["Quantity"]
+                            for batch in model.pharm_invs[product]),
+                        sum(batch["Quantity"]
+                            for batch in model.pharm_invs[product] if batch["ShelfLife"] <= 2)
                     ]
                     state_vector.append(product_state)
 
@@ -215,13 +225,15 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
                         mean, log_std = policy_net(product_state)
                         log_std = torch.clamp(log_std, min=-10, max=2)
                         std = torch.exp(log_std)
-                        action_distribution = torch.distributions.Normal(mean, std)
+                        action_distribution = torch.distributions.Normal(
+                            mean, std)
                         raw_action = action_distribution.sample()
                         clipped_action = torch.clamp(raw_action, 0, 100)
                         decision = torch.round(clipped_action).int().item()
                         decisions.append(decision)
 
-                eval_decision = {product: qty for product, qty in zip(product_names, decisions)}
+                eval_decision = {product: qty for product,
+                                 qty in zip(product_names, decisions)}
                 model.build_decision(order_quantities=eval_decision)
                 model.transition_fn()
 
@@ -230,14 +242,14 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
                 eval_reward = result["objective_value"]
                 episode_eval_rewards.append(eval_reward)
 
-        eval_rewards_history.append(sum(episode_eval_rewards) / len(episode_eval_rewards))
+        eval_rewards_history.append(
+            sum(episode_eval_rewards) / len(episode_eval_rewards))
 
         # Print metrics
         print(f"Dataset {dataset_index + 1}: Train Reward = {train_rewards_history[-1]:.2f}, "
               f"Eval Reward = {eval_rewards_history[-1]:.2f}")
 
     return train_rewards_history, eval_rewards_history
-
 
 
 def update_policy(log_probs, optimizer, states, actions, rewards):
@@ -250,6 +262,7 @@ def update_policy(log_probs, optimizer, states, actions, rewards):
 
     return loss.item()
 
+
 def plot_rewards_train(train_rewards):
     """Plot the training rewards."""
     plt.plot(train_rewards, label="Train Reward")
@@ -258,6 +271,7 @@ def plot_rewards_train(train_rewards):
     plt.title("Training Rewards")
     plt.legend()
     plt.show()
+
 
 def plot_rewards_eval(eval_rewards):
     """Plot the evaluation rewards."""
@@ -269,25 +283,34 @@ def plot_rewards_eval(eval_rewards):
     plt.show()
 
 
-
 if __name__ == "__main__":
     folder_path = "dataMP"
     is_training = True
+    is_cuda = True
     datasets = load_datasets(folder_path)
     product_names = ["Product1", "Product2", "Product3", "Product4"]
     init_state = {product: {"Demand": 0, "Forecast": 0, "PharmaceuticalInventory": 10, "ShelfLife": 5, "Cost": 1.0}
                   for product in product_names}
-    model = PerishablePharmaceuticalModelMultiProduct(product_names, init_state, decision_variable={})
+    model = PerishablePharmaceuticalModelMultiProduct(
+        product_names, init_state, decision_variable={})
 
     input_size = len(product_names)
     hidden_size = 128
     policy_net = PolicyNetwork(input_size, hidden_size)
     optimizer = optim.Adam(policy_net.parameters(), lr=1e-3)
 
+    # check if cuda is available
+    if torch.cuda.is_available() and is_cuda:
+        print("CUDA is available. Training on GPU.")
+        policy_net = policy_net.cuda()
+    else:
+        print("CUDA is not available. Training on CPU.")
+
     if is_training:
         time_start = time.time()
 
-        train_rewards, eval_rewards = train(datasets, model, policy_net, optimizer, max_steps=50)
+        train_rewards, eval_rewards = train(
+            datasets, model, policy_net, optimizer, max_steps=50)
         time_end = time.time()
         print(f"Training time: {time_end - time_start:.2f} seconds")
         torch.save(policy_net.state_dict(), "policy_net.pth")
@@ -295,4 +318,3 @@ if __name__ == "__main__":
         plot_rewards_eval(eval_rewards)
     else:
         policy_net.load_state_dict(torch.load("policy_net.pth"))
-
