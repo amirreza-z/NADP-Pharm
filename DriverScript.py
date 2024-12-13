@@ -98,7 +98,7 @@ def train(datasets, model, policy_net, optimizer, max_steps, num_episodes=3):
     for episode in range(num_episodes):
 
         for dataset_index, dataset in tqdm(enumerate(train_datasets)):
-            print(f"Training on Dataset { dataset_index + 1}/{len(train_datasets)}")
+
             dataset_train_rewards = []
 
             for step in range(max_steps):
