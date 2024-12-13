@@ -185,7 +185,6 @@ def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episod
                     actions = actions.cuda()
                     rewards = rewards.cuda()
 
-
                 loss = -torch.sum(log_probs * rewards)
 
                 optimizer.zero_grad()
@@ -226,6 +225,8 @@ def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episod
                     state_vector.append(product_state)
 
                 state_vector = torch.tensor(state_vector, dtype=torch.float32)
+                if is_cuda:
+                    state_vector = state_vector.cuda()
 
                 # Evaluate policy network
                 decisions = []
