@@ -148,6 +148,8 @@ def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episod
                     decisions.append(decision)
 
                 log_probs = torch.stack(product_log_probs).sum()
+                if is_cuda:
+                    log_probs = log_probs.cuda()
 
                 # Update model with chosen actions
                 order_decision = {product: qty for product,
@@ -177,6 +179,12 @@ def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episod
                 states = torch.stack(states)
                 actions = torch.stack(actions).squeeze()
                 rewards = torch.tensor(rewards, dtype=torch.float32)
+
+                if is_cuda:
+                    states = states.cuda()
+                    actions = actions.cuda()
+                    rewards = rewards.cuda()
+
 
                 loss = -torch.sum(log_probs * rewards)
 
