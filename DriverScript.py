@@ -76,7 +76,7 @@ def update_model(model, dataset_row, product_names):
 # plt.show(block=False)  # Non-blocking so training continues
 
 
-def train(datasets, model, policy_net, optimizer, max_steps, is_cuda, num_episodes=3):
+def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episodes=3):
     """
     Train the policy network using datasets.
 
@@ -148,7 +148,6 @@ def train(datasets, model, policy_net, optimizer, max_steps, is_cuda, num_episod
                     decisions.append(decision)
 
                 log_probs = torch.stack(product_log_probs).sum()
-                
 
                 # Update model with chosen actions
                 order_decision = {product: qty for product,
@@ -312,7 +311,7 @@ if __name__ == "__main__":
         time_start = time.time()
 
         train_rewards, eval_rewards = train(
-            datasets, model, policy_net, optimizer, is_cuda, max_steps=50)
+            datasets, model, policy_net, optimizer, is_cuda, max_steps=50, num_episodes=3)
         time_end = time.time()
         print(f"Training time: {time_end - time_start:.2f} seconds")
         torch.save(policy_net.state_dict(), "policy_net.pth")
