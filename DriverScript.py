@@ -68,53 +68,66 @@ def load_datasets(folder_path):
     return datasets
 
 
-def train(train_loader, model, policy_net, optimizer, is_cuda, product_names):
+def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, num_episodes):
     policy_net.train()
     train_rewards_history = []
 
-    for batch_states, dataset_indices in tqdm(train_loader):
-        if is_cuda:
-            batch_states = batch_states.cuda()
-        
-        batch_log_probs, batch_rewards = [], []
-        
-        for state_vector in batch_states:
-            product_log_probs, decisions = [], []
-            
-            for product_state in state_vector:
-                mean, log_std = policy_net(product_state)
-                log_std = torch.clamp(log_std, min=-10, max=2)
-                std = torch.exp(log_std)
-                action_distribution = torch.distributions.Normal(mean, std)
-                raw_action = action_distribution.sample()
-                clipped_action = torch.clamp(raw_action, 0, 100)
-                decision = torch.round(clipped_action).int().item()
-                product_log_probs.append(action_distribution.log_prob(clipped_action).sum())
-                decisions.append(decision)
-            
-            log_probs = torch.stack(product_log_probs).sum()
-            order_decision = {product: qty for product, qty in zip(product_names, decisions)}
-            model.build_decision(order_quantities=order_decision)
-            result = LPSolver.solve_ilp(model)
-            reward = result["objective_value"]
-            model.transition_fn()
-            
-            batch_log_probs.append(log_probs)
-            batch_rewards.append(torch.tensor(reward, dtype=torch.float32))
+    for episode in range(num_episodes):
+        print(f"Episode {episode + 1}/{num_episodes}")
+        episode_rewards = []
 
-        batch_log_probs = torch.stack(batch_log_probs)
-        batch_rewards = torch.stack(batch_rewards)
+        for batch_states, dataset_indices in tqdm(train_loader):
+            if is_cuda:
+                batch_states = batch_states.cuda()
+            
+            batch_log_probs, batch_rewards = [], []
+            batch_losses = []
+            batch_mean_rewards = []
+            
+            for state_vector in batch_states:
+                product_log_probs, decisions = [], []
+                
+                for product_state in state_vector:
+                    mean, log_std = policy_net(product_state)
+                    log_std = torch.clamp(log_std, min=-10, max=2)
+                    std = torch.exp(log_std)
+                    action_distribution = torch.distributions.Normal(mean, std)
+                    raw_action = action_distribution.sample()
+                    clipped_action = torch.clamp(raw_action, 0, 100)
+                    decision = torch.round(clipped_action).int().item()
+                    product_log_probs.append(action_distribution.log_prob(clipped_action).sum())
+                    decisions.append(decision)
+                
+                log_probs = torch.stack(product_log_probs).sum()
+                order_decision = {product: qty for product, qty in zip(product_names, decisions)}
+                model.build_decision(order_quantities=order_decision)
+                result = LPSolver.solve_ilp(model)
+                reward = result["objective_value"]
+                model.transition_fn()
+                
+                batch_log_probs.append(log_probs)
+                batch_rewards.append(torch.tensor(reward, dtype=torch.float32))
+                batch_mean_rewards.append(reward)
 
-        if is_cuda:
-            batch_log_probs = batch_log_probs.cuda()
-            batch_rewards = batch_rewards.cuda()
-        
-        loss = -torch.sum(batch_log_probs * batch_rewards)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            batch_log_probs = torch.stack(batch_log_probs)
+            batch_rewards = torch.stack(batch_rewards)
 
-        train_rewards_history.append(torch.mean(batch_rewards).item())
+            if is_cuda:
+                batch_log_probs = batch_log_probs.cuda()
+                batch_rewards = batch_rewards.cuda()
+            
+            loss = -torch.sum(batch_log_probs * batch_rewards)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            episode_rewards.append(torch.mean(batch_rewards).item())
+            batch_losses.append(loss.item())
+
+        avg_episode_reward = sum(episode_rewards) / len(episode_rewards)
+        avg_batch_loss = sum(batch_losses) / len(batch_losses)
+        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.2f}, Avg Loss: {avg_batch_loss:.4f}")
+        train_rewards_history.append(avg_episode_reward)
     return train_rewards_history
 
 
@@ -186,8 +199,9 @@ if __name__ == "__main__":
         print("CUDA is not available. Training on CPU.")
 
     # Train the model
+    num_episodes = 10
     time_start = time.time()
-    train_rewards = train(train_loader, model, policy_net, optimizer, is_cuda, product_names)
+    train_rewards = train(train_loader, model, policy_net, optimizer, is_cuda, product_names, num_episodes)
     eval_rewards = evaluate(eval_loader, model, policy_net, is_cuda, product_names)
     time_end = time.time()
 
