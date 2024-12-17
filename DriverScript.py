@@ -76,7 +76,7 @@ def update_model(model, dataset_row, product_names):
 # plt.show(block=False)  # Non-blocking so training continues
 
 
-def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episodes=3):
+def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episodes=20):
     """
     Train the policy network using datasets.
 
@@ -89,8 +89,8 @@ def train(datasets, model, policy_net, optimizer, is_cuda, max_steps, num_episod
     - num_episodes: Number of training episodes for each dataset step.
     """
     product_names = model.product_names
-    train_datasets = datasets[:10]
-    eval_datasets = datasets[10:12]
+    train_datasets = datasets[:100]
+    eval_datasets = datasets[100:120]
 
     train_rewards_history = []
     eval_rewards_history = []
