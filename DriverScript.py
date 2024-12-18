@@ -36,9 +36,22 @@ class PharmaDataset(Dataset):
         self.model = model
         self.product_names = product_names
         self.samples = []
+
+        #Inintialize statistics for normalization
+        self.inventory_mean = 300
+        self.inventory_std = 50
+        self.short_shelf_life_mean = 30
+        self.short_shelf_life_std = 5
+        self.sample_count = 0
         for df_index, df in enumerate(dataframes):
             for row_index in range(len(df)):
                 self.samples.append((df_index, row_index))
+
+    def update_running_stats(self, value, mean, std):
+        self.sample_count += 1
+        new_mean = (mean * (self.sample_count - 1) + value) / self.sample_count
+        new_std = ((std**2) * (self.sample_count - 1) + (value - new_mean)**2) / self.sample_count
+        return new_mean, new_std
 
     def __len__(self):
         return len(self.samples)
@@ -53,7 +66,19 @@ class PharmaDataset(Dataset):
             self.model.states[product]["Demand"] = demand
             inventory = sum(batch["Quantity"] for batch in self.model.pharm_invs[product])
             short_shelf_life = sum(batch["Quantity"] for batch in self.model.pharm_invs[product] if batch["ShelfLife"] <= 2)
-            state_vector.append([demand, forecast, inventory, short_shelf_life])
+
+            # Normalize variables
+            normalized_demand = demand/100
+            normalized_forecast = forecast/100
+
+            # Update running statistics for inventory and short shelf life
+            self.inventory_mean, self.inventory_std = self.update_running_stats(inventory, self.inventory_mean, self.inventory_std)
+            self.short_shelf_life_mean, self.short_shelf_life_std = self.update_running_stats(short_shelf_life, self.short_shelf_life_mean, self.short_shelf_life_std)
+            
+            normalized_inventory = (inventory - self.inventory_mean) / (self.inventory_std + 1e-5)
+            normalized_short_shelf_life = (short_shelf_life - self.short_shelf_life_mean) / (self.short_shelf_life_std + 1e-5)
+            state_vector.append([normalized_demand, normalized_forecast, normalized_inventory, normalized_short_shelf_life])
+            
         
         return torch.tensor(state_vector, dtype=torch.float32), dataset_index
 
