@@ -49,9 +49,13 @@ class PharmaDataset(Dataset):
 
     def update_running_stats(self, value, mean, std):
         self.sample_count += 1
-        new_mean = (mean * (self.sample_count - 1) + value) / self.sample_count
-        new_std = ((std**2) * (self.sample_count - 1) + (value - new_mean)**2) / self.sample_count
+        delta = value - mean
+        new_mean = mean + delta / self.sample_count
+        delta2 = value - new_mean
+        new_m2 = std**2 * (self.sample_count - 1) + delta * delta2
+        new_std = (new_m2 / self.sample_count)**0.5
         return new_mean, new_std
+
 
     def __len__(self):
         return len(self.samples)
