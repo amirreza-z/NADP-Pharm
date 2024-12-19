@@ -169,7 +169,7 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
 
         avg_episode_reward = sum(episode_rewards) / len(episode_rewards)
         
-        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.2f}, Loss: {loss.item():.4f}")
+        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.5f}, Loss: {loss.item():.4f}")
         train_rewards_history.append(avg_episode_reward)
     return train_rewards_history
 
