@@ -111,7 +111,6 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
             
             batch_log_probs, batch_rewards = [], []
             batch_losses = []
-            batch_mean_rewards = []
             
             for state_vector in batch_states:
                 product_log_probs, decisions = [], []
@@ -136,10 +135,14 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
                 
                 batch_log_probs.append(log_probs)
                 batch_rewards.append(torch.tensor(reward, dtype=torch.float32))
-                batch_mean_rewards.append(reward)
 
             batch_log_probs = torch.stack(batch_log_probs)
             batch_rewards = torch.stack(batch_rewards)
+
+            #Per-episode Normalization
+            reward_mean = batch_rewards.mean()
+            reward_std = batch_rewards.std()
+            batch_rewards = (batch_rewards - reward_mean) / (reward_std + 1e-8)
 
             if is_cuda:
                 batch_log_probs = batch_log_probs.cuda()
