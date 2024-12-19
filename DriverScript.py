@@ -97,7 +97,7 @@ def load_datasets(folder_path):
     return datasets
 
 
-def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, num_episodes):
+def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, num_episodes, entropy_beta=0.01):
     policy_net.train()
     train_rewards_history = []
 
@@ -110,24 +110,31 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
                 batch_states = batch_states.cuda()
             
             batch_log_probs, batch_rewards = [], []
-            batch_losses = []
+            batch_entropies = []
             
             for state_vector in batch_states:
-                product_log_probs, decisions = [], []
+                product_log_probs, product_entropies, decisions = [], [], []
                 
                 for product_state in state_vector:
                     mean, log_std = policy_net(product_state)
                     log_std = torch.clamp(log_std, min=-10, max=2)
                     std = torch.exp(log_std)
                     action_distribution = torch.distributions.Normal(mean, std)
+
+                    # Sample on action and compute log probability
                     raw_action = action_distribution.sample()
                     clipped_action = torch.clamp(raw_action, 0, 100)
                     decision = torch.round(clipped_action).int().item()
+
                     product_log_probs.append(action_distribution.log_prob(clipped_action).sum())
+                    product_entropies.append(action_distribution.entropy().sum()) #Compute entropy for exploration
+                    
                     decisions.append(decision)
                 
                 log_probs = torch.stack(product_log_probs).sum()
+                entropy = torch.stack(product_entropies).sum()
                 order_decision = {product: qty for product, qty in zip(product_names, decisions)}
+                
                 model.build_decision(order_quantities=order_decision)
                 result = LPSolver.solve_ilp(model)
                 reward = result["objective_value"]
@@ -135,9 +142,11 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
                 
                 batch_log_probs.append(log_probs)
                 batch_rewards.append(torch.tensor(reward, dtype=torch.float32))
+                batch_entropies.append(entropy)
 
             batch_log_probs = torch.stack(batch_log_probs)
             batch_rewards = torch.stack(batch_rewards)
+            batch_entropies = torch.stack(batch_entropies)
 
             #Per-episode Normalization
             reward_mean = batch_rewards.mean()
@@ -147,18 +156,20 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
             if is_cuda:
                 batch_log_probs = batch_log_probs.cuda()
                 batch_rewards = batch_rewards.cuda()
+                batch_entropies = batch_entropies.cuda()
             
-            loss = -torch.sum(batch_log_probs * batch_rewards)
+            # Compute loss with entropy regularization
+            loss = -torch.sum(batch_log_probs * batch_rewards) - entropy_beta * torch.sum(batch_entropies)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             episode_rewards.append(torch.mean(batch_rewards).item())
-            batch_losses.append(loss.item())
+            
 
         avg_episode_reward = sum(episode_rewards) / len(episode_rewards)
-        avg_batch_loss = sum(batch_losses) / len(batch_losses)
-        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.2f}, Avg Loss: {avg_batch_loss:.4f}")
+        
+        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.2f}, Loss: {loss.item():.4f}")
         train_rewards_history.append(avg_episode_reward)
     return train_rewards_history
 
