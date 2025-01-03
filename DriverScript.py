@@ -151,7 +151,8 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
             #Per-episode Normalization
             reward_mean = batch_rewards.mean()
             reward_std = batch_rewards.std()
-            batch_rewards = (batch_rewards - reward_mean) / (reward_std + 1e-8)
+            batch_rewards = (batch_rewards - reward_mean) / max(reward_std, 1e-3)
+
 
             if is_cuda:
                 batch_log_probs = batch_log_probs.cuda()
