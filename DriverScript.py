@@ -100,10 +100,11 @@ def load_datasets(folder_path):
 def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, num_episodes, initial_entropy_beta=0.01):
     policy_net.train()
     train_rewards_history = []
-    entropy_beta = max(0.001, initial_entropy_beta * (1 - episode / num_episodes))
+    
 
     for episode in range(num_episodes):
         print(f"Episode {episode + 1}/{num_episodes}")
+        entropy_beta = max(0.001, initial_entropy_beta * (1 - episode / num_episodes))
         episode_rewards = []
 
         for batch_states, dataset_indices in tqdm(train_loader):
