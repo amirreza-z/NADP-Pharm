@@ -24,7 +24,7 @@ class PolicyNetwork(nn.Module):
 
         # Initialize weights for stability
         nn.init.normal_(self.fc_log_std.weight, mean=0.0, std=0.01)
-        nn.init.constant_(self.fc_log_std.bias, 0.0)
+        nn.init.constant_(self.fc_log_std.bias, 0.1)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -145,7 +145,8 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
             batch_entropies = torch.stack(batch_entropies)
 
             # Normalize rewards to [0, 1]
-            batch_rewards = batch_rewards / max(batch_rewards.max().item(), 1e-3)
+            batch_rewards = (batch_rewards - batch_rewards.min()) / (batch_rewards.max() - batch_rewards.min() + 1e-8)
+
 
             if is_cuda:
                 batch_log_probs = batch_log_probs.cuda()
@@ -154,6 +155,12 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
 
             # Compute loss with entropy regularization
             loss = -torch.sum(batch_log_probs * batch_rewards) - entropy_beta * torch.sum(batch_entropies)
+            # Compute action penalty for clipping
+            action_penalty = torch.mean((torch.clamp(raw_action, 0, 100) - 100) ** 2)  # Penalize hitting bounds
+
+            # Add action penalty to the loss
+            loss += 0.01 * action_penalty  # Adjust penalty weight as needed
+            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
