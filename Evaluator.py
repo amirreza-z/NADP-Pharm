@@ -18,7 +18,7 @@ def load_dataset(filepath):
     return pd.read_csv(filepath)
 
 # Path to the new dataset
-new_dataset_path = "dataMP/dataset100.csv"  # Replace with the path to your desired dataset
+new_dataset_path = "dataMP/dataset_300.csv"  # Replace with the path to your desired dataset
 new_dataset = load_dataset(new_dataset_path)
 
 
@@ -52,14 +52,18 @@ def apply_policy(policy_net, states, product_names, model):
             with torch.no_grad():
                 mean, log_std = policy_net(product_state)
                 std = torch.exp(log_std)
+                print(f"Mean: {mean.item()}, Log-Std: {log_std.item()}, Std: {std.item()}")
                 action_distribution = torch.distributions.Normal(mean, std)
                 raw_action = action_distribution.sample()
                 clipped_action = torch.clamp(raw_action, 0, 100)
+                print(f"Sampled Action -> Raw: {raw_action.item()}, Clipped: {clipped_action.item()}")
                 decisions.append(torch.round(clipped_action).int().item())
+            
         
         # Map decisions to products
         order_decision = {product: qty for product, qty in zip(product_names, decisions)}
         model.build_decision(order_quantities=order_decision)
+
         
         # Solve the model and transition state
         result = LPSolver.solve_ilp(model)
@@ -71,7 +75,7 @@ def apply_policy(policy_net, states, product_names, model):
 if __name__ == "__main__":
     # Define paths and products
     product_names = ["Product1", "Product2", "Product3", "Product4"]
-    new_dataset_path = "dataMP/dataset100.csv"
+    new_dataset_path = "dataMP/dataset_300.csv"
 
     # Load the dataset
     new_dataset = load_dataset(new_dataset_path)
@@ -94,3 +98,5 @@ if __name__ == "__main__":
     # Display results
     print("Rewards:", rewards)
     print("Average Reward:", sum(rewards) / len(rewards))
+    
+    
