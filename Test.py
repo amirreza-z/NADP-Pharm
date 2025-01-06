@@ -10,7 +10,7 @@ from ModelPMP import PerishablePharmaceuticalModelMultiProduct
 from LPSolver import LPSolver
 from DriverScript import PolicyNetwork  # Assuming this is saved as a separate file
 from DriverScript import PharmaDataset  # Assuming this is saved as a separate file
-from DriverScript import load_datasets, compute_stats, plot_rewards, train  # Utility functions
+from DriverScript import load_datasets, compute_stats, plot_rewards, train, evaluate  # Utility functions
 
 # ------------------------------
 # Hyperparameters
