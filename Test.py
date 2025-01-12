@@ -109,7 +109,7 @@ if __name__ == "__main__":
             config["is_cuda"],
             config["product_names"],
             num_episodes=1,  # Train for one episode at a time
-            entropy_beta=config["initial_entropy_beta"],
+            initial_entropy_beta=config["initial_entropy_beta"],
         )
         train_rewards.append(episode_reward)
 
