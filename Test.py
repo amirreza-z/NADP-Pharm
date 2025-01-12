@@ -6,25 +6,35 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+import wandb  # WandB for logging and monitoring
+
+# Import your custom modules
 from ModelPMP import PerishablePharmaceuticalModelMultiProduct
 from LPSolver import LPSolver
-from DriverScript import PolicyNetwork  # Assuming this is saved as a separate file
-from DriverScript import PharmaDataset  # Assuming this is saved as a separate file
+from DriverScript import PolicyNetwork, PharmaDataset  # Assuming this is saved as a separate file
 from DriverScript import load_datasets, compute_stats, plot_rewards, train, evaluate  # Utility functions
+
+# ------------------------------
+# WandB Integration
+# ------------------------------
+wandb.login()
 
 # ------------------------------
 # Hyperparameters
 # ------------------------------
-FOLDER_PATH = "dataMP"
-IS_CUDA = True
-PRODUCT_NAMES = ["Product1", "Product2", "Product3", "Product4"]
-INPUT_SIZE = 4  # Number of state variables per product
-HIDDEN_SIZE = 128
-LEARNING_RATE = 1e-3
-BATCH_SIZE = 16
-NUM_EPISODES = 10
-INITIAL_ENTROPY_BETA = 0.005
-MODEL_SAVE_PATH = "policy_net.pth"
+config = {
+    "folder_path": "dataMP",
+    "is_cuda": True,
+    "product_names": ["Product1", "Product2", "Product3", "Product4"],
+    "input_size": 4,  # Number of state variables per product
+    "hidden_size": 128,
+    "learning_rate": 1e-3,
+    "batch_size": 16,
+    "num_episodes": 10,
+    "initial_entropy_beta": 0.005,
+    "model_save_path": "policy_net.pth",
+}
+wandb.init(project="reinforcement_learning_project", name="initial_run", config=config)
 
 # ------------------------------
 # Helper Function: Print Results
@@ -40,7 +50,7 @@ def print_summary(title, data):
 if __name__ == "__main__":
     # 1. Load Data
     print("Loading datasets...")
-    datasets = load_datasets(FOLDER_PATH)
+    datasets = load_datasets(config["folder_path"])
     train_datasets = datasets[:100]
     eval_datasets = datasets[100:120]
 
@@ -59,27 +69,27 @@ if __name__ == "__main__":
             "ShelfLife": 5,
             "Cost": 1.0,
         }
-        for product in PRODUCT_NAMES
+        for product in config["product_names"]
     }
     model = PerishablePharmaceuticalModelMultiProduct(
-        PRODUCT_NAMES, init_state, decision_variable={}
+        config["product_names"], init_state, decision_variable={}
     )
 
     train_dataset = PharmaDataset(
-        train_datasets, model, PRODUCT_NAMES, inventory_stats, shelf_life_stats
+        train_datasets, model, config["product_names"], inventory_stats, shelf_life_stats
     )
     eval_dataset = PharmaDataset(
-        eval_datasets, model, PRODUCT_NAMES, inventory_stats, shelf_life_stats
+        eval_datasets, model, config["product_names"], inventory_stats, shelf_life_stats
     )
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    eval_loader = DataLoader(eval_dataset, batch_size=BATCH_SIZE, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=config["batch_size"], shuffle=True)
+    eval_loader = DataLoader(eval_dataset, batch_size=config["batch_size"], shuffle=False)
 
     # 4. Initialize Policy Network
-    policy_net = PolicyNetwork(INPUT_SIZE, HIDDEN_SIZE)
-    optimizer = optim.Adam(policy_net.parameters(), lr=LEARNING_RATE)
+    policy_net = PolicyNetwork(config["input_size"], config["hidden_size"])
+    optimizer = optim.Adam(policy_net.parameters(), lr=config["learning_rate"])
 
     # 5. CUDA Check
-    if torch.cuda.is_available() and IS_CUDA:
+    if torch.cuda.is_available() and config["is_cuda"]:
         print("CUDA is available. Training on GPU.")
         policy_net = policy_net.cuda()
     else:
@@ -88,52 +98,66 @@ if __name__ == "__main__":
     # 6. Train the Policy Network
     print("Starting training...")
     time_start = time.time()
-    train_rewards = train(
-        train_loader,
-        model,
-        policy_net,
-        optimizer,
-        IS_CUDA,
-        PRODUCT_NAMES,
-        NUM_EPISODES,
-        INITIAL_ENTROPY_BETA,
-    )
+    train_rewards = []
+    for episode in range(config["num_episodes"]):
+        # Training logic
+        episode_reward = train(
+            train_loader,
+            model,
+            policy_net,
+            optimizer,
+            config["is_cuda"],
+            config["product_names"],
+            num_episodes=1,  # Train for one episode at a time
+            entropy_beta=config["initial_entropy_beta"],
+        )
+        train_rewards.append(episode_reward)
+
+        # Log metrics to WandB
+        wandb.log({"Episode": episode, "Train Reward": episode_reward})
+
     time_end = time.time()
 
     # Training Summary
     print_summary("Training Summary", {
-        "Total Episodes": NUM_EPISODES,
-        "Final Avg Reward": f"{train_rewards[-1]:.2f}",
+        "Total Episodes": config["num_episodes"],
+        "Final Avg Reward": f"{np.mean(train_rewards):.2f}",
         "Training Time": f"{time_end - time_start:.2f} seconds",
     })
 
     # Save the Model
-    torch.save(policy_net.state_dict(), MODEL_SAVE_PATH)
-    print(f"Policy network saved to {MODEL_SAVE_PATH}.")
+    torch.save(policy_net.state_dict(), config["model_save_path"])
+    wandb.save(config["model_save_path"])
+    print(f"Policy network saved to {config['model_save_path']}.")
 
     # 7. Evaluate the Policy Network
     print("Evaluating the model...")
-    eval_rewards = evaluate(eval_loader, model, policy_net, IS_CUDA, PRODUCT_NAMES)
+    eval_rewards = evaluate(eval_loader, model, policy_net, config["is_cuda"], config["product_names"])
+    eval_mean_reward = np.mean(eval_rewards)
+    eval_std_reward = np.std(eval_rewards)
+
+    # Log evaluation metrics to WandB
+    wandb.log({"Eval Reward Mean": eval_mean_reward, "Eval Reward Std": eval_std_reward})
+
     print_summary("Evaluation Summary", {
-        "Evaluation Reward Mean": f"{np.mean(eval_rewards):.2f}",
-        "Evaluation Reward Std": f"{np.std(eval_rewards):.2f}",
+        "Evaluation Reward Mean": f"{eval_mean_reward:.2f}",
+        "Evaluation Reward Std": f"{eval_std_reward:.2f}",
     })
 
     # 8. Visualize Results
-    plot_rewards(train_rewards, "Training Rewards")
-    plot_rewards(eval_rewards, "Evaluation Rewards")
+    plt.plot(train_rewards)
+    plt.xlabel("Episode")
+    plt.ylabel("Total Reward")
+    plt.title("Training Rewards Over Time")
+    wandb.log({"Training Rewards Plot": wandb.Image(plt)})
+    plt.show()
 
-    # Optional: Print Final Policy Decisions
-    print("Sample Policy Decisions:")
-    for batch_states, dataset_indices in train_loader:
-        for state_vector in batch_states[:3]:  # Print for first 3 batches
-            decisions = []
-            for product_state in state_vector:
-                mean, log_std = policy_net(product_state)
-                std = torch.exp(log_std)
-                action_distribution = torch.distributions.Normal(mean, std)
-                raw_action = action_distribution.sample()
-                clipped_action = torch.clamp(raw_action, 0, 100)
-                decisions.append(torch.round(clipped_action).item())
-            print(f"Decisions: {dict(zip(PRODUCT_NAMES, decisions))}")
-        break  # Only show for the first batch
+    plt.plot(eval_rewards)
+    plt.xlabel("Episode")
+    plt.ylabel("Evaluation Reward")
+    plt.title("Evaluation Rewards Over Time")
+    wandb.log({"Evaluation Rewards Plot": wandb.Image(plt)})
+    plt.show()
+
+    # Finish WandB Run
+    wandb.finish()
