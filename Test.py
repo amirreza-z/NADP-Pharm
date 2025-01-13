@@ -34,7 +34,7 @@ config = {
     "initial_entropy_beta": 0.005,
     "model_save_path": "policy_net.pth",
 }
-wandb.init(project="reinforcement_learning_project", name="initial_run", config=config)
+wandb.init(project="NADP-Pharm-Project", name="initial_run", config=config)
 
 # ------------------------------
 # Helper Function: Print Results
