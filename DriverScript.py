@@ -217,8 +217,8 @@ if __name__ == "__main__":
 
     # Load datasets
     datasets = load_datasets(folder_path)
-    train_datasets = datasets[:100]
-    eval_datasets = datasets[100:120]
+    train_datasets = datasets[:800]
+    eval_datasets = datasets[800:999]
 
     # Compute fixed stats
     inventory_stats = compute_stats(train_datasets, "inventory")
@@ -245,7 +245,7 @@ if __name__ == "__main__":
         print("CUDA is not available. Training on CPU.")
 
     # Train the model
-    num_episodes = 10
+    num_episodes = 200
     time_start = time.time()
     train_rewards = train(train_loader, model, policy_net, optimizer, is_cuda, product_names, num_episodes)
     eval_rewards = evaluate(eval_loader, model, policy_net, is_cuda, product_names)
