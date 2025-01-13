@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import time
 import numpy as np
 import wandb  # WandB for logging and monitoring
+from tqdm import tqdm
 
 # Import your custom modules
 from ModelPMP import PerishablePharmaceuticalModelMultiProduct
@@ -99,7 +100,7 @@ if __name__ == "__main__":
     print("Starting training...")
     time_start = time.time()
     train_rewards = []
-    for episode in range(config["num_episodes"]):
+    for episode in tqdm(range(config["num_episodes"]), desc="Training Episodes"):
         # Training logic
         episode_reward = train(
             train_loader,
@@ -108,7 +109,7 @@ if __name__ == "__main__":
             optimizer,
             config["is_cuda"],
             config["product_names"],
-            num_episodes=1,  # Train for one episode at a time
+            config["num_episodes"],  # Train for one episode at a time
             initial_entropy_beta=config["initial_entropy_beta"],
         )
         train_rewards.append(episode_reward)
@@ -132,7 +133,13 @@ if __name__ == "__main__":
 
     # 7. Evaluate the Policy Network
     print("Evaluating the model...")
-    eval_rewards = evaluate(eval_loader, model, policy_net, config["is_cuda"], config["product_names"])
+    eval_rewards = []
+
+    for batch in tqdm(eval_loader, desc="Evaluation Batches"):
+        eval_reward = evaluate(batch, model, policy_net, config["is_cuda"], config["product_names"])
+        eval_rewards.append(eval_reward)
+    
+
     eval_mean_reward = np.mean(eval_rewards)
     eval_std_reward = np.std(eval_rewards)
 
