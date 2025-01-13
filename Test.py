@@ -30,7 +30,7 @@ config = {
     "hidden_size": 128,
     "learning_rate": 1e-3,
     "batch_size": 16,
-    "num_episodes": 10,
+    "num_episodes": 200,
     "initial_entropy_beta": 0.005,
     "model_save_path": "policy_net.pth",
 }
@@ -51,8 +51,8 @@ if __name__ == "__main__":
     # 1. Load Data
     print("Loading datasets...")
     datasets = load_datasets(config["folder_path"])
-    train_datasets = datasets[:100]
-    eval_datasets = datasets[100:120]
+    train_datasets = datasets[:800]
+    eval_datasets = datasets[800:999]
 
     # 2. Compute Stats for Normalization
     print("Computing stats...")
