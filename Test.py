@@ -9,12 +9,16 @@ import numpy as np
 import wandb  # WandB for logging and monitoring
 from tqdm import tqdm
 
-# Import your custom modules
+# Import custom modules
 from ModelPMP import PerishablePharmaceuticalModelMultiProduct
 from LPSolver import LPSolver
-from DriverScript import PolicyNetwork, PharmaDataset  # Assuming this is saved as a separate file
+from DriverScript import PolicyNetwork, PharmaDataset  
 from DriverScript import load_datasets, compute_stats, plot_rewards, train, evaluate  # Utility functions
 
+
+# Ensure API key and silent mode are set
+os.environ["WANDB_SILENT"] = "true"
+os.environ["WANDB_API_KEY"] = "fca285677b0b05dee2f27489f4063497be8ba82e"
 # ------------------------------
 # WandB Integration
 # ------------------------------
@@ -35,7 +39,8 @@ config = {
     "initial_entropy_beta": 0.005,
     "model_save_path": "policy_net.pth",
 }
-wandb.init(project="NADP-Pharm-Project", name="initial_run", config=config)
+wandb.init(project="NADP-Pharm-Project", name="updated_logging", config=config, mode="online")
+
 
 # ------------------------------
 # Helper Function: Print Results
@@ -101,21 +106,33 @@ if __name__ == "__main__":
     time_start = time.time()
     train_rewards = []
     for episode in tqdm(range(config["num_episodes"]), desc="Training Episodes"):
+        episode_start_time = time.time()
+
         # Training logic
-        episode_reward = train(
+        episode_reward, episode_loss = train(
             train_loader,
             model,
             policy_net,
             optimizer,
             config["is_cuda"],
             config["product_names"],
-            config["num_episodes"],  # Train for one episode at a time
+            config["num_episodes"],
             initial_entropy_beta=config["initial_entropy_beta"],
         )
         train_rewards.append(episode_reward)
+        episode_time = time.time() - episode_start_time
+
+        # Log weights for all parameters
+        for name, param in policy_net.named_parameters():
+            wandb.log({f"Weights/{name}": wandb.Histogram(param.data.cpu().numpy())})
 
         # Log metrics to WandB
-        wandb.log({"Episode": episode, "Train Reward": episode_reward})
+        wandb.log({
+            "Episode": episode,
+            "Train Reward": episode_reward,
+            "Train Loss": episode_loss,
+            "Episode Time (s)": episode_time,
+        })
 
     time_end = time.time()
 
@@ -139,7 +156,6 @@ if __name__ == "__main__":
         eval_reward = evaluate(batch, model, policy_net, config["is_cuda"], config["product_names"])
         eval_rewards.append(eval_reward)
     
-
     eval_mean_reward = np.mean(eval_rewards)
     eval_std_reward = np.std(eval_rewards)
 

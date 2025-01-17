@@ -97,11 +97,13 @@ def compute_stats(dataframes, key):
 def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, num_episodes, initial_entropy_beta=0.005):
     policy_net.train()
     train_rewards_history = []
+    loss_history = []
 
     for episode in range(num_episodes):
         print(f"Episode {episode + 1}/{num_episodes}")
         entropy_beta = max(0.001, initial_entropy_beta * (1 - episode / num_episodes))
         episode_rewards = []
+        episode_loss = []
 
         for batch_states, dataset_indices in tqdm(train_loader):
             if is_cuda:
@@ -155,23 +157,21 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
 
             # Compute loss with entropy regularization
             loss = -torch.sum(batch_log_probs * batch_rewards) - entropy_beta * torch.sum(batch_entropies)
-            # Compute action penalty for clipping
-            action_penalty = torch.mean((torch.clamp(raw_action, 0, 100) - 100) ** 2)  # Penalize hitting bounds
 
-            # Add action penalty to the loss
-            loss += 0.01 * action_penalty  # Adjust penalty weight as needed
-            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
             episode_rewards.append(batch_rewards.mean().item())
+            episode_loss += loss.item()  # Accumulate loss for the episode
 
         avg_episode_reward = sum(episode_rewards) / len(episode_rewards)
-        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.5f}, Loss: {loss.item():.4f}")
+        avg_episode_loss = episode_loss / len(train_loader)  # Average loss per batch
+        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.5f}, Avg Loss: {avg_episode_loss:.4f}")
         train_rewards_history.append(avg_episode_reward)
+        loss_history.append(avg_episode_loss)
 
-    return train_rewards_history
+    return train_rewards_history, loss_history
 
 
 def evaluate(eval_loader, model, policy_net, is_cuda, product_names):
