@@ -104,7 +104,7 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
         print(f"Episode {episode + 1}/{num_episodes}")
         entropy_beta = max(0.001, initial_entropy_beta * (1 - episode / num_episodes))
         episode_rewards = []
-        episode_loss = []
+        episode_loss = 0.0
 
         for batch_states, dataset_indices in tqdm(train_loader):
             if is_cuda:
