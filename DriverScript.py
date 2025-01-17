@@ -10,6 +10,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import time
 import numpy as np
+import wandb
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -160,6 +161,10 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
 
             optimizer.zero_grad()
             loss.backward()
+            # log gradients norm            
+            for name, param in policy_net.named_parameters():
+                if param.grad is not None:
+                    wandb.log({f"Gradient Norm/{name}": param.grad.norm().item()})
             optimizer.step()
 
             episode_rewards.append(batch_rewards.mean().item())
