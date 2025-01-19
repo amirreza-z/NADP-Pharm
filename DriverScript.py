@@ -101,6 +101,7 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
     loss_history = []
 
     for episode in range(num_episodes):
+        episode_start_time = time.time()  # Start timing the episode
         print(f"Episode {episode + 1}/{num_episodes}")
         entropy_beta = max(0.001, initial_entropy_beta * (1 - episode / num_episodes))
         episode_rewards = []
@@ -150,7 +151,6 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
             # Normalize rewards to [0, 1]
             batch_rewards = (batch_rewards - batch_rewards.min()) / (batch_rewards.max() - batch_rewards.min() + 1e-8)
 
-
             if is_cuda:
                 batch_log_probs = batch_log_probs.cuda()
                 batch_rewards = batch_rewards.cuda()
@@ -161,22 +161,29 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
 
             optimizer.zero_grad()
             loss.backward()
-            # log gradients norm            
-            for name, param in policy_net.named_parameters():
-                if param.grad is not None:
-                    wandb.log({f"Gradient Norm/{name}": param.grad.norm().item()})
             optimizer.step()
 
             episode_rewards.append(batch_rewards.mean().item())
-            episode_loss += loss.item()  # Accumulate loss for the episode
+            episode_loss += loss.item()
 
         avg_episode_reward = sum(episode_rewards) / len(episode_rewards)
-        avg_episode_loss = episode_loss / len(train_loader)  # Average loss per batch
-        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.5f}, Avg Loss: {avg_episode_loss:.4f}")
+        avg_episode_loss = episode_loss / len(train_loader)
+        episode_time = time.time() - episode_start_time  # Calculate episode time
+
+        # Log metrics to WandB
+        wandb.log({
+            "Episode": episode,
+            "Train Reward": avg_episode_reward,
+            "Train Loss": avg_episode_loss,
+            "Episode Time (s)": episode_time,
+        })
+
+        print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.5f}, Avg Loss: {avg_episode_loss:.4f}, Time: {episode_time:.2f}s")
         train_rewards_history.append(avg_episode_reward)
         loss_history.append(avg_episode_loss)
 
     return train_rewards_history, loss_history
+
 
 
 def evaluate(eval_loader, model, policy_net, is_cuda, product_names):

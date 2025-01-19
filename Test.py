@@ -105,34 +105,24 @@ if __name__ == "__main__":
     print("Starting training...")
     time_start = time.time()
     train_rewards = []
-    for episode in tqdm(range(config["num_episodes"]), desc="Training Episodes"):
-        episode_start_time = time.time()
+    
+    # Training logic
+    episode_reward, episode_loss = train(
+        train_loader,
+        model,
+        policy_net,
+        optimizer,
+        config["is_cuda"],
+        config["product_names"],
+        config["num_episodes"],
+        initial_entropy_beta=config["initial_entropy_beta"],
+    )
+    
+    
 
-        # Training logic
-        episode_reward, episode_loss = train(
-            train_loader,
-            model,
-            policy_net,
-            optimizer,
-            config["is_cuda"],
-            config["product_names"],
-            config["num_episodes"],
-            initial_entropy_beta=config["initial_entropy_beta"],
-        )
-        train_rewards.append(episode_reward)
-        episode_time = time.time() - episode_start_time
-
-        # Log weights for all parameters
-        for name, param in policy_net.named_parameters():
-            wandb.log({f"Weights/{name}": wandb.Histogram(param.data.cpu().numpy())})
-
-        # Log metrics to WandB
-        wandb.log({
-            "Episode": episode,
-            "Train Reward": episode_reward,
-            "Train Loss": episode_loss,
-            "Episode Time (s)": episode_time,
-        })
+    # Log weights for all parameters
+    for name, param in policy_net.named_parameters():
+        wandb.log({f"Weights/{name}": wandb.Histogram(param.data.cpu().numpy())})
 
     time_end = time.time()
 
