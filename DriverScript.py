@@ -136,8 +136,9 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
                 order_decision = {product: qty for product, qty in zip(product_names, decisions)}
 
                 model.build_decision(order_quantities=order_decision)
-                result = LPSolver.solve_ilp(model)
-                reward = result["objective_value"]
+                # result = LPSolver.solve_ilp(model)
+                # reward = result["objective_value"]
+                reward = model.total_obj_fn()
                 model.transition_fn()
 
                 batch_log_probs.append(log_probs)
