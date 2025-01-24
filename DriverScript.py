@@ -208,8 +208,9 @@ def evaluate(eval_loader, model, policy_net, is_cuda, product_names):
 
                 order_decision = {product: qty for product, qty in zip(product_names, decisions)}
                 model.build_decision(order_quantities=order_decision)
-                result = LPSolver.solve_ilp(model)
-                eval_rewards_history.append(result["objective_value"])
+                # result = LPSolver.solve_ilp(model)
+                result = model.objective_fn()
+                eval_rewards_history.append(result)
                 model.transition_fn()
 
     return eval_rewards_history
