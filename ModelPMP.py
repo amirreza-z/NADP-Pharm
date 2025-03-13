@@ -97,7 +97,7 @@ class PerishablePharmaceuticalModelMultiProduct:
         total_obj_fn = 0.0
         for product in self.product_names:
             # Calculate holding costs for near-expiry items (penalty for items with low shelf life)
-            holding_cost = sum(batch["Quantity"] * 0.1 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 2)
+            holding_cost = sum(batch["Quantity"] * 0.1 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 3)
 
             # Calculate cost of expired products (fully expired items)
             expired_cost = sum(batch["Quantity"] * self.cost[product] for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 0)
