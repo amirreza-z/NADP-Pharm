@@ -87,27 +87,24 @@ class PerishablePharmaceuticalModelMultiProduct:
         self.pharm_invs[product] = [batch for batch in self.pharm_invs[product] if batch["ShelfLife"] > 0]
 
     def objective_fn(self):
-        """
-        Compute the objective function for the model, considering:
-        - Revenue from demand fulfillment.
-        - Holding costs for near-expiry products.
-        - Penalties for expired products.
-        :return: float - the calculated objective function value.
-        """
         total_obj_fn = 0.0
         for product in self.product_names:
             # Calculate holding costs for near-expiry items (penalty for items with low shelf life)
-            holding_cost = sum(batch["Quantity"] * 0.1 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 3)
+            holding_cost = sum(batch["Quantity"] * 0.2 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 3)
 
             # Calculate cost of expired products (fully expired items)
-            expired_cost = sum(batch["Quantity"] * self.cost[product] for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 0)
+            expired_cost = sum(batch["Quantity"] * self.cost[product] * 2 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 0)
 
             # Calculate profit from selling products based on demand satisfaction
             fulfilled_demand = sum(batch["Quantity"] for batch in self.pharm_invs[product])
             revenue = self.price[product] * min(fulfilled_demand, self.states[product]["Demand"])
 
-            # Update total objective function (profit - holding cost - expired cost)
-            total_obj_fn += revenue - holding_cost - expired_cost
+            # Penalty for overstocking (inventory above a threshold)
+            inventory_level = sum(batch["Quantity"] for batch in self.pharm_invs[product])
+            overstock_penalty = max(0, inventory_level - self.max_inventory[product]) * 0.1
+
+            # Update total objective function (profit - holding cost - expired cost - overstock penalty)
+            total_obj_fn += revenue - holding_cost - expired_cost - overstock_penalty
 
         return total_obj_fn
 
