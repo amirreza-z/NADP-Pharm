@@ -30,7 +30,8 @@ wandb.login()
 config = {
     "folder_path": "dataMP",
     "is_cuda": True,
-    "product_names": ["Product1", "Product2", "Product3", "Product4"],
+    "product_names": ["Product1"],  # Only Product1 for now
+    # "product_names": ["Product1", "Product2", "Product3", "Product4"],
     "input_size": 4,  # Number of state variables per product
     "hidden_size": 128,
     "learning_rate": 1e-3,
