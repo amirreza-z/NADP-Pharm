@@ -34,7 +34,7 @@ config = {
     # "product_names": ["Product1", "Product2", "Product3", "Product4"],
     "input_size": 4,  # Number of state variables per product
     "hidden_size": 128,
-    "learning_rate": 1e-3,
+    "learning_rate": 1e-4, 
     "batch_size": 16,
     "num_episodes": 200,
     "initial_entropy_beta": 0.005,
