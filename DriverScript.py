@@ -149,8 +149,8 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
             batch_rewards = torch.stack(batch_rewards)
             batch_entropies = torch.stack(batch_entropies)
 
-            # Normalize rewards to [0, 1]
-            batch_rewards = (batch_rewards - batch_rewards.min()) / (batch_rewards.max() - batch_rewards.min() + 1e-8)
+            # # Normalize rewards to [0, 1]
+            # batch_rewards = (batch_rewards - batch_rewards.min()) / (batch_rewards.max() - batch_rewards.min() + 1e-8)
 
             if is_cuda:
                 batch_log_probs = batch_log_probs.cuda()
