@@ -177,6 +177,8 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
             "Train Reward": avg_episode_reward,
             "Train Loss": avg_episode_loss,
             "Episode Time (s)": episode_time,
+            "Raw Reward": reward,
+            "Entropy": entropy.item(),
         })
 
         print(f"Episode {episode + 1} Metrics: Avg Reward: {avg_episode_reward:.5f}, Avg Loss: {avg_episode_loss:.4f}, Time: {episode_time:.2f}s")
