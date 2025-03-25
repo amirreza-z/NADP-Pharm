@@ -31,7 +31,7 @@ class PolicyNetwork(nn.Module):
         x = self.fc1(x)
         x = self.relu(x)
         mean = torch.sigmoid(self.fc_mean(x)) * 100  # Scale mean to [0, 100]
-        log_std = torch.clamp(self.fc_log_std(x), min=-5, max=1)  # Clamp log-std for stability
+        log_std = torch.clamp(self.fc_log_std(x), min=-2, max=1)  # Clamp log-std for stability
         return mean, log_std
 
 
@@ -144,6 +144,25 @@ def train(train_loader, model, policy_net, optimizer, is_cuda, product_names, nu
                 batch_log_probs.append(log_probs)
                 batch_rewards.append(torch.tensor(reward, dtype=torch.float32))
                 batch_entropies.append(entropy)
+            
+            
+
+            table = wandb.Table(columns=["Episode", "RowIndex", "Product", "Demand", "OrderQuantity", "Fulfilled", "Expired"])
+
+            # Inside your training loop
+            for row_index, (state_vector, _) in enumerate(batch_states):
+                for i, product_state in enumerate(state_vector):
+                    # after sampling your action:
+                    table.add_data(
+                        episode,
+                        row_index,
+                        product_names[i],
+                        model.states[product_names[i]]["Demand"],
+                        decisions[i],
+                    )
+
+            wandb.log({"Order Decisions": table})
+
 
             batch_log_probs = torch.stack(batch_log_probs)
             batch_rewards = torch.stack(batch_rewards)
