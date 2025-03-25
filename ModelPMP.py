@@ -86,26 +86,54 @@ class PerishablePharmaceuticalModelMultiProduct:
         self.num_expired = sum(1 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 0)
         self.pharm_invs[product] = [batch for batch in self.pharm_invs[product] if batch["ShelfLife"] > 0]
 
-    def objective_fn(self):
-        total_obj_fn = 0.0
-        for product in self.product_names:
-            # Calculate holding costs for near-expiry items (penalty for items with low shelf life)
-            holding_cost = sum(batch["Quantity"] * 0.2 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 3)
+    # def objective_fn(self):
+    #     total_obj_fn = 0.0
+    #     for product in self.product_names:
+    #         # Calculate holding costs for near-expiry items (penalty for items with low shelf life)
+    #         holding_cost = sum(batch["Quantity"] * 0.5 * self.cost[product] for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 3)
 
-            # Calculate cost of expired products (fully expired items)
-            expired_cost = sum(batch["Quantity"] * self.cost[product] * 2 for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 0)
+    #         # Calculate cost of expired products (fully expired items)
+    #         expired_cost = sum(batch["Quantity"] * self.cost[product] for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 0)
 
-            # Calculate profit from selling products based on demand satisfaction
-            fulfilled_demand = sum(batch["Quantity"] for batch in self.pharm_invs[product])
-            revenue = self.price[product] * min(fulfilled_demand, self.states[product]["Demand"])
+    #         # Calculate profit from selling products based on demand satisfaction
+    #         fulfilled_demand = sum(batch["Quantity"] for batch in self.pharm_invs[product])
+    #         revenue = self.price[product] * min(fulfilled_demand, self.states[product]["Demand"])
 
-            # Penalty for overstocking (inventory above a threshold)
-            inventory_level = sum(batch["Quantity"] for batch in self.pharm_invs[product])
-            overstock_penalty = max(0, inventory_level - self.max_inventory[product]) * 0.1
+    #         # Penalty for overstocking (inventory above a threshold)
+    #         inventory_level = sum(batch["Quantity"] for batch in self.pharm_invs[product])
+    #         overstock_penalty = max(0, inventory_level - self.max_inventory[product]) * 0.5 * self.cost[product]
 
-            # Update total objective function (profit - holding cost - expired cost - overstock penalty)
-            total_obj_fn += revenue - holding_cost - expired_cost - overstock_penalty
+    #         # Update total objective function (profit - holding cost - expired cost - overstock penalty)
+    #         total_obj_fn += revenue - holding_cost - expired_cost - overstock_penalty
 
-        return total_obj_fn
-
+    #     return total_obj_fn
     
+    def objective_fn(self):
+        total_obj_fn = 0
+        for product in self.product_names:
+            demand = self.states[product]["Demand"]
+
+            # Fulfill demand using FIFO logic
+            remaining_demand = demand
+            fulfilled = 0
+            for batch in sorted(self.pharm_invs[product], key=lambda x: x["ShelfLife"]):
+                if remaining_demand <= 0:
+                    break
+                used = min(batch["Quantity"], remaining_demand)
+                fulfilled += used
+                remaining_demand -= used
+
+            # Count expired
+            expired_units = sum(batch["Quantity"] for batch in self.pharm_invs[product] if batch["ShelfLife"] <= 0)
+
+            # Reward logic
+            if fulfilled >= demand:
+                total_obj_fn += 5  # Fully satisfied demand
+            elif fulfilled > 0:
+                total_obj_fn += 2  # Partially fulfilled
+            else:
+                total_obj_fn -= 2  # Demand not met at all
+
+            total_obj_fn -= 3 * expired_units  # Penalty per expired unit
+
+        return total_obj_fn  
